@@ -3,6 +3,7 @@ from tkinter import messagebox, simpledialog
 import datetime
 from modelo.mundo import Biblioteca, BibliotecaGestion, Libro, Usuario, UsuarioNoAutenticado, LibroNoDisponible, LibroNoEncontrado
 
+
 class BibliotecaApp:
     def __init__(self, root):
         self.root = root
@@ -83,6 +84,10 @@ class BibliotecaApp:
         tk.Button(frame_libro, text="Añadir Libro", command=self.anadir_libro).grid(row=4, columnspan=2, pady=5)
         tk.Button(frame_libro, text="Visualizar Libros", command=self.visualizar_libros).grid(row=5, columnspan=2, pady=5)
 
+        # Widgets para buscar libro y cambiar contraseña
+        tk.Button(self.root, text="Buscar Libro", command=self.buscar_libro).pack(pady=5)
+        tk.Button(self.root, text="Cambiar Contraseña", command=self.cambiar_contrasena).pack(pady=5)
+
         # Widgets para préstamos
         frame_prestamo = tk.Frame(self.root)
         frame_prestamo.pack(pady=10)
@@ -113,11 +118,52 @@ class BibliotecaApp:
             messagebox.showerror("Error", str(e))
 
     def visualizar_libros(self):
-        try:
-            libros = self.biblioteca_gestion.catalogo.visualizar_libros()
-            messagebox.showinfo("Libros en el Catálogo", libros)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
+        """Mostrar una ventana emergente con la lista de libros en el catálogo."""
+        libros = self.biblioteca_gestion.catalogo.libros
+        if not libros:
+            messagebox.showinfo("Catálogo", "No hay libros en el catálogo.")
+        else:
+            ventana_libros = tk.Toplevel(self.root)
+            ventana_libros.title("Libros en el Catálogo")
+            
+            for i, libro in enumerate(libros):
+                disponibilidad = "Disponible" if libro.disponible else "Prestado"
+                libro_info = f"Título: {libro.titulo}, Autor: {libro.autor}, Género: {libro.genero}, ISBN: {libro.ISBN}, Estado: {disponibilidad}"
+                tk.Label(ventana_libros, text=libro_info).pack(anchor="w", padx=10, pady=2)
+
+    def buscar_libro(self):
+        """Función para buscar libros en el catálogo por título, autor o género."""
+        tipo_busqueda = simpledialog.askstring("Buscar Libro", "Buscar por (titulo, autor, genero):")
+        if tipo_busqueda not in ["titulo", "autor", "genero"]:
+            messagebox.showerror("Error", "Tipo de búsqueda inválido. Use: titulo, autor o genero.")
+            return
+
+        valor = simpledialog.askstring("Buscar Libro", f"Ingrese el {tipo_busqueda} del libro:")
+        if valor:
+            try:
+                resultados = self.biblioteca_gestion.catalogo.buscar_libros(tipo_busqueda, valor)
+                if resultados:
+                    ventana_resultados = tk.Toplevel(self.root)
+                    ventana_resultados.title("Resultados de Búsqueda")
+                    for libro in resultados:
+                        disponibilidad = "Disponible" if libro.disponible else "Prestado"
+                        libro_info = f"Título: {libro.titulo}, Autor: {libro.autor}, Género: {libro.genero}, ISBN: {libro.ISBN}, Estado: {disponibilidad}"
+                        tk.Label(ventana_resultados, text=libro_info).pack(anchor="w", padx=10, pady=2)
+                else:
+                    messagebox.showinfo("Resultados de Búsqueda", "No se encontraron libros que coincidan.")
+            except LibroNoEncontrado as e:
+                messagebox.showinfo("Resultados de Búsqueda", str(e))
+
+    def cambiar_contrasena(self):
+        """Permitir que el usuario autenticado cambie su contraseña."""
+        if not self.usuario_actual:
+            messagebox.showerror("Error", "Debe iniciar sesión para cambiar la contraseña.")
+            return
+
+        nueva_contrasena = simpledialog.askstring("Cambiar Contraseña", "Ingrese nueva contraseña:", show="*")
+        if nueva_contrasena:
+            self.usuario_actual._Usuario__contrasena = nueva_contrasena  # Cambiar contraseña
+            messagebox.showinfo("Éxito", "Contraseña cambiada exitosamente.")
 
     def registrar_prestamo(self):
         try:
@@ -158,8 +204,3 @@ class BibliotecaApp:
                 return libro
         raise LibroNoEncontrado("El libro con el ISBN proporcionado no fue encontrado.")
 
-# Inicializar la interfaz gráfica
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = BibliotecaApp(root)
-    root.mainloop()
